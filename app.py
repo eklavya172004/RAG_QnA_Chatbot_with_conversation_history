@@ -37,7 +37,8 @@ if api_key:
 
     llm = ChatGroq(
         groq_api_key=api_key,
-        model_name="groq/compound"
+        model_name="groq/compound",
+        max_tokens=256
     )
 
     # chat interface
@@ -76,8 +77,8 @@ if api_key:
 
         # split and create embeddings
         text_splitter = RecursiveCharacterTextSplitter(
-            chunk_size=5000,
-            chunk_overlap=500
+            chunk_size=1000,
+            chunk_overlap=150
         )
 
         splits = text_splitter.split_documents(documents)
@@ -87,7 +88,9 @@ if api_key:
             embedding=embeddings
         )
 
-        retriever = vectorstore.as_retriever()
+        retriever = vectorstore.as_retriever(
+            search_kwargs={"k": 3}
+        )
 
         # Contextualize question
         contextualize_q_system_prompt = (
@@ -117,7 +120,7 @@ if api_key:
             "You are an assistant for question-answering tasks. "
             "Use the following pieces of retrieved context to answer "
             "the question. If you don't know the answer, say that you "
-            "don't know. Use three-five sentences maximum and keep the "
+            "don't know. Use two sentences maximum and keep the "
             "answer concise."
             "\n\n"
             "{context}"
@@ -147,7 +150,11 @@ if api_key:
             if session not in st.session_state.store:
                 st.session_state.store[session] = ChatMessageHistory()
 
-            return st.session_state.store[session]
+            history = st.session_state.store[session]
+            if len(history.messages) > 5:
+                history.messages = history.messages[-5:]
+
+            return history
 
         # conversational chain
         conversational_rag_chain = RunnableWithMessageHistory(
